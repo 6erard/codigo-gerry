@@ -1,0 +1,98 @@
+Alternative
+-----------
+// File: getRestCallWindowsAlt.js
+
+const https = require('https');
+const http = require('http');
+const readline = require('readline');
+
+// Function to read the URL from user input
+async function readUrlInput() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question('Please enter the URL: ', (url) => {
+      rl.close();
+      resolve(url);
+    });
+  });
+}
+
+// Function to check if the URL is valid
+function isValidUrl(userInput) {
+  try {
+    new URL(userInput);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+// Function to make the GET request
+async function makeGetRequest() {
+  const urlInput = await readUrlInput();
+
+  if (!isValidUrl(urlInput)) {
+    console.error('Invalid URL provided. Please enter a valid URL.\n');
+    return;
+  }
+
+  const parsedUrl = new URL(urlInput);
+  const protocol = parsedUrl.protocol === 'https:' ? https : http;
+
+  const options = {
+    method: 'GET',
+    headers: {
+      'User-Agent': 'NodeJS-REST-Client',
+    },
+  };
+
+  protocol
+    .request(parsedUrl, options, (res) => {
+      let data = '';
+
+      // Gather response data
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      res.on('end', () => {
+        console.log('---- Response Details ----\n');
+        console.log(`Status Code: ${res.statusCode}\n`);
+        console.log('Headers:', res.headers, '\n');
+
+        // Check for cookies
+        const cookies = res.headers['set-cookie'] || [];
+        console.log('Cookies:', cookies.length ? cookies : 'No cookies received.\n');
+
+        console.log('Body:', data, '\n');
+
+        // Certificate Details (only for HTTPS)
+        if (parsedUrl.protocol === 'https:') {
+          const cert = res.socket.getPeerCertificate();
+          if (Object.keys(cert).length) {
+            console.log('\n---- Certificate Details ----\n');
+            console.log(`Issued To (Common Name - CN): ${cert.subject.CN}\n`);
+            console.log(`Issued By (Common Name - CN): ${cert.issuer.CN}\n`);
+            console.log(`Issuer Organization (O): ${cert.issuer.O || 'N/A'}\n`);
+            console.log(`Validity Period:`);
+            console.log(`  Valid From: ${cert.valid_from}`);
+            console.log(`  Valid To: ${cert.valid_to}\n`);
+            console.log(`  Fingerprint: ${cert.fingerprint}\n`);
+          } else {
+            console.log('No peer certificate available.\n');
+          }
+        }
+      });
+    })
+    .on('error', (err) => {
+      console.error(`Error making the request: ${err.message}`);
+    })
+    .end();
+}
+
+// Run the script
+makeGetRequest();

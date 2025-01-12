@@ -1,0 +1,92 @@
+Initial
+--------
+// File: getRestCallWindows.js
+
+const https = require('https');
+const http = require('http');
+const readline = require('readline');
+const url = require('url');
+
+function isValidUrl(input) {
+  try {
+    new URL(input); // This will throw if not a valid URL
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Function to make a GET request
+function makeGetRequest(endpoint) {
+  const parsedUrl = url.parse(endpoint);
+  const protocol = parsedUrl.protocol === 'https:' ? https : http;
+
+  const options = {
+    method: 'GET',
+    headers: {
+      'User-Agent': 'NodeJS-REST-Client',
+    },
+  };
+
+  const req = protocol.request(parsedUrl, options, (res) => {
+    let body = '';
+
+    // Gather response data
+    res.on('data', (chunk) => {
+      body += chunk;
+    });
+
+    res.on('end', () => {
+      const cookies = res.headers['set-cookie'] || [];
+
+      console.log('---- Response Details ----\r\n');
+      console.log(`Status Code: ${res.statusCode}\r\n`);
+      console.log('Headers:', res.headers, '\r\n');
+      console.log('Cookies:', cookies, '\r\n');
+      console.log('Body:', body, '\r\n');
+
+      // Certificate Details (only for HTTPS)
+      if (parsedUrl.protocol === 'https:') {
+        const cert = res.socket.getPeerCertificate();
+        if (Object.keys(cert).length) {
+          console.log('\r\n---- Certificate Details ----\r\n');
+
+          console.log(`Issued To (Common Name - CN): ${cert.subject.CN}\r\n`);
+          console.log(`Issued By (Common Name - CN): ${cert.issuer.CN}\r\n`);
+          console.log(`Issuer Organization (O): ${cert.issuer.O || 'N/A'}\r\n`);
+          console.log(`Validity Period:\r\n`);
+          console.log(`  Valid From: ${cert.valid_from}\r\n`);
+          console.log(`  Valid To: ${cert.valid_to}\r\n`);
+          console.log(`  Fingerprint: ${cert.fingerprint}\r\n`);
+        } else {
+          console.log('No peer certificate available.\r\n');
+        }
+      }
+    });
+  });
+
+  req.on('error', (e) => {
+    console.error(`Problem with request: ${e.message}\r\n`);
+  });
+
+  req.end();
+}
+
+// Read URL from the console
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+console.log('Please enter the URL:');
+rl.question('> ', (inputUrl) => {
+  if (!isValidUrl(inputUrl)) {
+    console.log('Invalid URL provided. Exiting...\r\n');
+    rl.close();
+    return;
+  }
+
+  makeGetRequest(inputUrl);
+  rl.close(); // Close after calling request
+});
+
